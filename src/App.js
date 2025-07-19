@@ -95,6 +95,23 @@ function App() {
 
   const [displayGuide, setDisplayGuide] = useState(true)
 
+  const [hintsEnabled, setHintsEnabled] = useState([false, false, false, false, false, false])
+
+  const [hintTheme, setHintTheme] = useState("")
+  const [hintTrivia, setHintTrivia] = useState("")
+  const [hintHistory, setHintHistory] = useState("")
+  const [hintSong, setHintSong] = useState("")
+
+  const [displayHintTheme, setDisplayHintTheme] = useState(false)
+  const [displayHintTrivia, setDisplayHintTrivia] = useState(false)
+  const [displayHintHistory, setDisplayHintHistory] = useState(false)
+  const [displayHintGenre, setDisplayHintGenre] = useState(false)
+  const [displayHintYear, setDisplayHintYear] = useState(false)
+  const [displayHintSong, setDisplayHintSong] = useState(false)
+
+  const [pointsToday, setPointsToday] = useState(10)
+  const [pointsTotal, setPointsTotal] = useState(0)
+
   useEffect(() => {
     // check if today's date matches localStorage date
     if (localStorage.getItem("today") !== null) {
@@ -132,6 +149,7 @@ function App() {
         localStorage.removeItem("lostLives")
         localStorage.removeItem("won")
         localStorage.removeItem("storedAlbum")
+        localStorage.removeItem("todayPoints")
 
         // set today's date in storage
         const today = new Date()
@@ -176,6 +194,39 @@ function App() {
     if (localStorage.getItem("bestStreak") !== null) {
       setBestStreak(localStorage.getItem("bestStreak"))
     }
+    if (localStorage.getItem("todayPoints") !== null) {
+      setPointsToday(parseInt(localStorage.getItem("todayPoints")))
+    }
+    if (localStorage.getItem("totalPoints") !== null) {
+      setPointsTotal(parseInt(localStorage.getItem("totalPoints")))
+    }
+    // retrieve whether any hints are displayed
+    let storedHintTheme = localStorage.getItem("displayHintTheme") 
+    let storedHintTrivia = localStorage.getItem("displayHintTrivia") 
+    let storedHintHistory = localStorage.getItem("displayHintHistory") 
+    let storedHintGenre = localStorage.getItem("displayHintGenre") 
+    let storedHintYear = localStorage.getItem("displayHintYear") 
+    let storedHintSong = localStorage.getItem("displayHintSong") 
+    if (storedHintTheme !== null) {
+      setDisplayHintTheme(storedHintTheme)
+    }
+    if (storedHintTrivia !== null) {
+      setDisplayHintTrivia(storedHintTrivia)
+    }
+    if (storedHintHistory !== null) {
+      setDisplayHintHistory(storedHintHistory)
+    }
+    if (storedHintGenre !== null) {
+      setDisplayHintGenre(storedHintGenre)
+    }
+    if (storedHintYear !== null) {
+      setDisplayHintYear(storedHintYear)
+    }
+    if (storedHintSong !== null) {
+      setDisplayHintSong(storedHintSong)
+    }
+
+
     // if user has already retrieved album of the day, no need to retrieve it again
     if (localStorage.getItem("storedAlbum") !== null) {
       let storedAlbumJSON = JSON.parse(localStorage.getItem("storedAlbum"))
@@ -258,12 +309,22 @@ function App() {
 
       // check if album matches stored album
       if (compareAlbums(newAlbum)) {
+        // increment points
+        let newPoints = pointsToday + 1
+        localStorage.setItem("todayPoints", newPoints)
+        setPointsToday(newPoints)
+
+        // update total aggregate points by today's total
+        let newTotalPoints = pointsTotal + newPoints
+        localStorage.setItem("totalPoints", newTotalPoints)
+        setPointsTotal(newTotalPoints) 
+
         // mark that player has won
         setPlayerWon(true)
         localStorage.setItem("won", true)
 
         // increment streak 
-        let newStreak = currentStreak + 1
+        let newStreak = parseInt(currentStreak) + 1
         localStorage.setItem("currStreak", newStreak)
         setCurrentStreak(newStreak)
 
@@ -298,11 +359,13 @@ function App() {
   }
 
   async function getAlbumOfTheDay() {
-    const aotdQueryResponse = await fetch ("http://localhost:8081/albumoftheday")
+    const aotdQueryResponse = await fetch ("https://guessthealbum-222760924592.us-central1.run.app/albumoftheday")
       .then((response) => response.json())
       .then((aotdResponse) => {
         // get returned album id
+        
         let master_id = aotdResponse[0].album_id
+        console.log(aotdResponse)
         
         // retrieve album from Discogs
         getAlbumById(master_id).then((albumResponse) => {
@@ -598,6 +661,57 @@ function App() {
     setGuessSelected(true)
   }
 
+  const updateHintsEnabled = (value) => {
+    let pointDecrement = 0
+    
+    if (value == 0) {
+      setDisplayHintTheme(true)
+      localStorage.setItem("displayHintTheme", true)
+    }
+    else if (value == 1) {
+      setDisplayHintTrivia(true)
+      pointDecrement = 1
+      localStorage.setItem("displayHintTrivia", true)
+    }
+    else if (value == 2) {
+      setDisplayHintHistory(true)
+      pointDecrement = 2
+      localStorage.setItem("displayHintHistory", true)
+    }
+    else if (value == 3) {
+      setDisplayHintGenre(true)
+      pointDecrement = 3
+      localStorage.setItem("displayHintGenre", true)
+    }
+    else if (value == 4) {
+      setDisplayHintYear(true)
+      pointDecrement = 3
+      localStorage.setItem("displayHintYear", true)
+    }
+    else if (value == 5) {
+      setDisplayHintSong(true)
+      pointDecrement = 5
+      localStorage.setItem("displayHintSong", true)
+    }
+
+    let new_points = pointsToday - pointDecrement
+    setPointsToday(new_points)
+    localStorage.setItem("todayPoints", new_points)
+
+    let currentHints = hintsEnabled
+    currentHints[value] = true
+    setHintsEnabled(currentHints)
+
+    
+
+    // disable hint button
+    let hintId = "hint" + value
+    const hintButton = document.getElementById(hintId)
+    hintButton.setAttribute("disabled", "")
+    hintButton.classList.add("bg-success")
+    hintButton.style.color = "white"
+  }
+
   return (
     <div className="container main-background">
       <div className="container page-title">
@@ -635,9 +749,35 @@ function App() {
         {/* Display win message */}
         {(playerWon || localStorage.getItem("won")) &&
           <div className="container win-message">
-            <p>You got it!</p>
+            {/* Display different messages based on points */}
+            {(!displayHintTheme && pointsToday == 11) &&
+            <span>
+              <p>What!? You didn't even look at the theme!?</p>
+              <div>An album god!</div>
+            </span>
+            }
+            {(displayHintTheme && pointsToday == 11) &&
+              <p>Turn it up to 11!</p>
+            }
+            {pointsToday == 10 &&
+              <p>A perfect 10!</p>
+            }
+            {(pointsToday < 10 && pointsToday > 7) &&
+              <p>Great work!</p>
+            }
+            {(pointsToday < 8 && pointsToday > 4) &&
+              <p>Good job!</p>
+            }
+            {(pointsToday < 5 && pointsToday > 1) &&
+              <p>Could be worse!</p>
+            }
+            {(pointsToday == 1) &&
+              <p>Just barely got it!</p>
+            }
           </div>
         }
+
+        
 
         {/* Display loss message */}
         {(!playerWon && lives.length == 0) &&
@@ -658,10 +798,164 @@ function App() {
 
         {/* Display streak once game has ended */}
         {(playerWon || lives.length == 0) &&
-          <div className="container streak-box">
-            {currentStreak > 0 && <p className="streak-text">Current Streak: {currentStreak}</p>}
-            <p className="streak-text">Best Streak: {bestStreak}</p>
+          <div className="d-flex flex-row summary-row">
+            <div className="col-sm streak-box">
+              {currentStreak > 0 && <p className="streak-text">Current Streak: {currentStreak}</p>}
+              <p className="streak-text">Best Streak: {bestStreak}</p>
+            </div>
+            {/* Display point totals */}
+            <div className="col-sm point-display streak-text">
+              <p>Today's Points: {pointsToday}</p>
+              <p>Total Points: {pointsTotal}</p>
+            </div>
           </div>
+        }
+        
+        {(!playerWon && lives.length > 0) &&
+        <div className="container hint-box">
+          <div className="d-flex flex-row hint-heading">
+            <div className="col-2">Help?</div>
+            <div className="col">Hints</div>
+            <div className="col-2">Points: {pointsToday}</div>
+          </div>
+          <div className="d-flex flex-row text-center border-bottom">
+            <div className="col-1">Cost</div>
+            <div className="col-2">Category</div>
+            <div className="col-8">Clue</div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row align-items-center">
+            <div className="col-1">- 0</div>
+            <div className="col-2">
+              {!displayHintTheme &&
+                <Button variant="outline-success" className="hint-button" id="hint0" onClick={(e) => updateHintsEnabled(0)}>Theme</Button>
+              }
+              {displayHintTheme &&
+                <Button variant="success" className="hint-button" disabled>Theme</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintTheme &&
+                <span>???</span>
+              }
+              {displayHintTheme &&
+                <span>{hintTheme}</span>
+              }
+            </div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row">
+            <div className="col-1">- 1</div>
+            <div className="col-2">
+              {(pointsToday >= 1 && !displayHintTrivia) &&
+                <Button variant="outline-success" className="hint-button" id="hint1" onClick={(e) => updateHintsEnabled(1)}>Trivia</Button>
+              }
+              {displayHintTrivia &&
+                <Button variant="success" className="hint-button" disabled>Trivia</Button>
+              }
+              {(pointsToday < 1 && !displayHintTrivia) &&
+                <Button variant="danger" className="hint-button" disabled>Trivia</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintTrivia &&
+                <span>???</span>
+              }
+              {displayHintTrivia &&
+                <span>{hintTrivia}</span>
+              }
+            </div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row">
+            <div className="col-1">- 2</div>
+            <div className="col-2">
+              {(pointsToday >= 2 && !displayHintHistory) &&
+                <Button variant="outline-success" className="hint-button" id="hint2" onClick={(e) => updateHintsEnabled(2)}>History/Legacy</Button>
+              }
+              {displayHintHistory &&
+                <Button variant="success" className="hint-button" disabled>History/Legacy</Button>
+              }
+              {(pointsToday < 2 && !displayHintHistory) &&
+                <Button variant="danger" className="hint-button" disabled>History/Legacy</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintHistory &&
+                <span>???</span>
+              }
+              {displayHintHistory &&
+                <span>{hintHistory}</span>
+              }
+            </div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row">
+            <div className="col-1">- 3</div>
+            <div className="col-2">
+              {(pointsToday >= 3 && !displayHintGenre) &&
+                <Button variant="outline-success" className="hint-button" id="hint3" onClick={(e) => updateHintsEnabled(3)}>Reveal Genres</Button>
+              }
+              {displayHintGenre &&
+                <Button variant="success" className="hint-button" disabled>Reveal Genres</Button>
+              }
+              {(pointsToday < 3 && !displayHintGenre) &&
+                <Button variant="danger" className="hint-button" disabled>Reveal Genres</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintGenre &&
+                <span>???</span>
+              }
+              {displayHintGenre &&
+                <span>
+                  <span className="hint-genre-main">{convertListToString(storedAlbum.genres)}, </span>
+                  <span>{convertListToString(storedAlbum.styles)}</span>
+                </span>
+              }
+            </div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row">
+            <div className="col-1">- 3</div>
+            <div className="col-2">
+              {(pointsToday >= 3 && !displayHintYear) &&
+                <Button variant="outline-success" className="hint-button" id="hint4" onClick={(e) => updateHintsEnabled(4)}>Reveal Year</Button>
+              }
+              {displayHintYear &&
+                <Button variant="success" className="hint-button" disabled>Reveal Year</Button>
+              }
+              {(pointsToday < 3 && !displayHintYear) &&
+                <Button variant="danger" className="hint-button" disabled>Reveal Year</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintYear &&
+                <span>???</span>
+              }
+              {displayHintYear &&
+                <span>{storedAlbum.year}</span>
+              }
+            </div>
+          </div>
+          <div className="d-flex flex-row text-center hint-row">
+            <div className="col-1">- 5</div>
+            <div className="col-2">
+              {(pointsToday >= 5 && !displayHintSong) &&
+                <Button variant="outline-success" className="hint-button" id="hint5" onClick={(e) => updateHintsEnabled(5)}>Reveal Song</Button>
+              }
+              {displayHintSong &&
+                <Button variant="success" className="hint-button" disabled>Reveal Song</Button>
+              }
+              {(pointsToday < 5 && !displayHintSong) &&
+                <Button variant="danger" className="hint-button" disabled>Reveal Song</Button>
+              }
+            </div>
+            <div className="col-8">
+              {!displayHintSong &&
+                <span>???</span>
+              }
+              {displayHintSong &&
+                <span>Song</span>
+              }
+            </div>
+          </div>
+        </div>
         }
         
         {(!playerWon && lives.length > 0) && 
