@@ -386,8 +386,8 @@ function App() {
   }
 
   async function getAlbumOfTheDay() {
-    // const aotdQueryResponse = await fetch ("https://guessthealbum-222760924592.us-central1.run.app/albumoftheday")
-    const aotdQueryResponse = await fetch ("http://localhost:8081/albumoftheday")
+    const aotdQueryResponse = await fetch ("https://guessthealbum-222760924592.us-central1.run.app/albumoftheday")
+    // const aotdQueryResponse = await fetch ("http://localhost:8081/albumoftheday")
       .then((response) => response.json())
       .then((aotdResponse) => {
         // get returned album id
