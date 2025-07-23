@@ -9,6 +9,7 @@ import "./App.css"
 import { ImArrowUp, ImArrowDown } from "react-icons/im";
 import { FaBimobject, FaHeart } from "react-icons/fa";
 import { GiCompactDisc, GiCrackedDisc } from "react-icons/gi";
+import { useDebounce } from 'use-debounce';
 
 
 // given a duration in mm:ss string format, converts it to the total number of seconds 
@@ -84,23 +85,28 @@ function App() {
   const [lives, setLives] = useState([true, true, true, true, true, true, true, true, true, true])
   const [lostLives, setLostLives] = useState([])
   const [playerWon, setPlayerWon] = useState(false)
-  const [displayTitles, setDisplayTitles] = useState(true)
   const [storedAlbum, setStoredAlbum] = useState(null)
   const [displayErrorMsg, setDisplayErrorMsg] = useState(false)
   const [errorMessage, setErrorMessage] = useState("Something went wrong. Please wait a second before trying again.")
   const [loadingGuess, setLoadingGuess] = useState(false)
 
+  const [searchInput, setSearchInput] = useState("")
+  const [submittedSearchInput] = useDebounce(searchInput, 1000)
+  useEffect(() => {
+    fetchData(submittedSearchInput)
+  }, [submittedSearchInput])
+
   const [currentStreak, setCurrentStreak] = useState(0)
   const [bestStreak, setBestStreak] = useState(0)
 
+  const [displayTitles, setDisplayTitles] = useState(true)
   const [displayGuide, setDisplayGuide] = useState(true)
+
+  const [displayHintTutorial, setDisplayHintTutorial] = useState(false)
 
   const [hintsEnabled, setHintsEnabled] = useState([false, false, false, false, false, false])
 
-  const [hintTheme, setHintTheme] = useState("")
-  const [hintTrivia, setHintTrivia] = useState("")
-  const [hintHistory, setHintHistory] = useState("")
-  const [hintSong, setHintSong] = useState("")
+  const [hints, setHints] = useState({})
 
   const [displayHintTheme, setDisplayHintTheme] = useState(false)
   const [displayHintTrivia, setDisplayHintTrivia] = useState(false)
@@ -150,6 +156,13 @@ function App() {
         localStorage.removeItem("won")
         localStorage.removeItem("storedAlbum")
         localStorage.removeItem("todayPoints")
+        localStorage.removeItem("hints")
+        localStorage.removeItem("displayHintTheme")
+        localStorage.removeItem("displayHintTrivia")
+        localStorage.removeItem("displayHintHistory")
+        localStorage.removeItem("displayHintGenre")
+        localStorage.removeItem("displayHintYear")
+        localStorage.removeItem("displayHintSong")
 
         // set today's date in storage
         const today = new Date()
@@ -188,6 +201,14 @@ function App() {
     if (localStorage.getItem("won") !== null) {
       setPlayerWon(localStorage.getItem("won"))
     }
+    let displayGuideOption = localStorage.getItem("displayGuide")
+    let displayTitlesOption = localStorage.getItem("displayTitles")
+    if (displayGuideOption !== null) {
+      setDisplayGuide(displayGuideOption == "true")
+    }
+    if (displayTitlesOption !== null) {
+      setDisplayTitles(displayTitlesOption == "true")
+    }
     if (localStorage.getItem("currStreak") !== null) {
       setCurrentStreak(localStorage.getItem("currStreak"))
     }
@@ -224,6 +245,10 @@ function App() {
     }
     if (storedHintSong !== null) {
       setDisplayHintSong(storedHintSong)
+    }
+    if (localStorage.getItem("hints") !== null) {
+      let storedHintsJSON = JSON.parse(localStorage.getItem("hints"))
+      setHints(storedHintsJSON)
     }
 
 
@@ -343,10 +368,12 @@ function App() {
         localStorage.setItem("lives", lives)
         localStorage.setItem("lostLives", lostLives)
 
-        // if player loses, reset their streak
+        // if player loses, reset their streak and eliminate points
         if (lives.length == 0) {
           setCurrentStreak(0)
           localStorage.setItem("currStreak", 0)
+          setPointsToday(0)
+          localStorage.setItem("todayPoints", 0)
         }
       }
     }
@@ -359,13 +386,22 @@ function App() {
   }
 
   async function getAlbumOfTheDay() {
-    const aotdQueryResponse = await fetch ("https://guessthealbum-222760924592.us-central1.run.app/albumoftheday")
+    // const aotdQueryResponse = await fetch ("https://guessthealbum-222760924592.us-central1.run.app/albumoftheday")
+    const aotdQueryResponse = await fetch ("http://localhost:8081/albumoftheday")
       .then((response) => response.json())
       .then((aotdResponse) => {
         // get returned album id
-        
         let master_id = aotdResponse[0].album_id
-        console.log(aotdResponse)
+
+        // retrieve and store hints about album 
+        const albumHints = {
+          theme: aotdResponse[0].theme,
+          trivia: aotdResponse[0].trivia_hint,
+          history: aotdResponse[0].history_hint,
+          song: aotdResponse[0].song_hint
+        }
+        setHints(albumHints)
+        localStorage.setItem("hints", JSON.stringify(albumHints))
         
         // retrieve album from Discogs
         getAlbumById(master_id).then((albumResponse) => {
@@ -645,20 +681,54 @@ function App() {
 
   }
 
-  const handleChange = (value) => {
+  // function debounce(callback, wait) {
+  //   let timeout
+  //   return (...args) => {
+  //       clearTimeout(timeout)
+  //       timeout = setTimeout(function () { callback.apply(this, args); }, wait)
+  //   };
+  // }
+
+  // window.addEventListener('keyup', debounce(() => {
+  //   let searchValue = document.getElementById("searchbar").value
+  //   console.log(searchValue)
+  //   fetchData(searchValue)
+  // }, 1000))
+
+
+  const handleSearch = (value) => {
     // clear error message, reset to default msg
     setDisplayErrorMsg(false)
     setErrorMessage("Something went wrong. Please wait a second before trying again.")
     setGuess(value)
     setInput(value)
-    fetchData(value)
     setGuessSelected(false)
+    setSearchInput(value)
   }
 
   const handleNewSubmit = (value) => {
     setGuess(value)
     setInput(value.title)
     setGuessSelected(true)
+  }
+
+  const updateDisplayGuide = (value) => {
+    setDisplayGuide(value)
+    localStorage.setItem("displayGuide", value)
+  }
+
+  let displayGuideLoaded = false
+  let displayTitlesLoaded = false
+  const updateDisplayGuideStart = (value) => {
+    if (!displayGuideLoaded) {
+      setDisplayGuide(value)
+      displayGuideLoaded = true
+    }
+  }
+
+  const updateDisplayTitles = (value) => {
+    setDisplayTitles(value)
+    localStorage.setItem("displayTitles", value)
   }
 
   const updateHintsEnabled = (value) => {
@@ -685,7 +755,7 @@ function App() {
     }
     else if (value == 4) {
       setDisplayHintYear(true)
-      pointDecrement = 3
+      pointDecrement = 4
       localStorage.setItem("displayHintYear", true)
     }
     else if (value == 5) {
@@ -713,7 +783,7 @@ function App() {
   }
 
   return (
-    <div className="container main-background">
+    <div className="container">
       <div className="container page-title">
         <p>Guess The Album</p>
       </div>
@@ -729,22 +799,7 @@ function App() {
 
       {storedAlbum != null &&
       <div>
-        {/* Display tutorial on how to use clues */}
-        {(!playerWon && lives.length > 0 && displayGuide) && 
-          <div className="container tutorial-box">
-            <div className="tutorial-heading">(Sub)genre Clues</div>
-            <div className="d-flex flex-row text-center justify-content-center align-items-center">
-              <div className="col-sm"><span style={{color: "green", fontWeight: "bold"}}>Green</span>: All (sub)genres match.</div>
-              <div className="col-sm"><span style={{color: "#fcd512", fontWeight: "bold"}}>Yellow</span>: At least one of the (sub)genres matches, but not all of them do.</div>
-              <div className="col-sm"><span style={{color: "red", fontWeight: "bold"}}>Red</span>: None of the (sub)genres match.</div>
-            </div>
-            <div className="tutorial-heading">Number Clues</div>
-            <div className="d-flex flex-row text-center justify-content-center align-items-center">
-              <div className="col-sm"><ImArrowUp/> <span style={{fontWeight: "bold"}}>Arrow up</span>: The actual number/year is LARGER/MORE RECENT than your guess.</div>
-              <div className="col-sm"><ImArrowDown/> <span style={{fontWeight: "bold"}}>Arrow down</span>: The actual number/year is SMALLER/LESS RECENT than your guess.</div>
-            </div>
-          </div>
-        }
+
 
         {/* Display win message */}
         {(playerWon || localStorage.getItem("won")) &&
@@ -787,7 +842,7 @@ function App() {
         }
 
         {(playerWon || lives.length == 0) &&
-          <div className="end-message">
+          <div className="end-message image-fade-in">
             {/* Display the actual album of the day */}
             <div>
               <img src={storedAlbum.cover_image} style={{width:"30%", height: "30%"}}/>
@@ -810,11 +865,51 @@ function App() {
             </div>
           </div>
         }
+
+        {displayHintTutorial &&
+          <div className="container hint-howtouse hint-fade-in">
+            <div className="d-flex flex-row">
+              <div className="col"></div>
+              <div className="col howtoplay-title">How To Play</div>
+              <div className="col howtoplay-close"><Button variant="danger" type="submit" onClick={(e) => setDisplayHintTutorial(false)}>X</Button></div>
+            </div>
+            <div className="d-flex flex-row">
+              <div className="col">
+                <p className="howtoplay-title">General</p>
+                <ul>
+                  <li>There is one album of the day that you are trying to guess. Look up artist names or album titles to submit album guesses.</li>
+                  <li>Every guess tells you details you got right or wrong about the album of the day.</li>
+                  <li>You get 10 guesses. If you run out, you lose.</li>
+                </ul>
+              </div>
+              <div className="col">
+                <p className="howtoplay-title">Points and Hints</p>
+                <ul>
+                  <li>You start with 10 points. You do not lose any points for guessing.</li>
+                  <li>You always gain 1 point if you correctly guess the album. If you lose, you always end up with 0 points.</li>
+                  <li>You can trade some points for hints about the album of the day.</li>
+                  <li>The theme is always free. Be careful which clues you choose to reveal, as you may run out of points to use.</li>
+                </ul>
+              </div>
+              <div className="col">
+                <p className="howtoplay-title">Streaks and Total Points</p>
+                <ul>
+                  <li>You gain a streak if you guess the album correctly at least two days in a row.</li>
+                  <li>Points do not affect streaks, but you must correctly guess the album on consecutive days to keep your streak.</li>
+                  <li>The points you have at the end of the day are added to your total points. Your total points are never erased.</li>
+                  <li>Streaks and total points are just for fun.</li>
+                </ul>
+              </div>
+            </div>
+            
+          </div>
+        }
         
         {(!playerWon && lives.length > 0) &&
         <div className="container hint-box">
+          {/* Guide for how to use hints */}
           <div className="d-flex flex-row hint-heading">
-            <div className="col-2">Help?</div>
+            <div className="col-2" onClick={(e) => setDisplayHintTutorial(true)}><Button variant="success" className="help-button">Help?</Button></div>
             <div className="col">Hints</div>
             <div className="col-2">Points: {pointsToday}</div>
           </div>
@@ -838,7 +933,7 @@ function App() {
                 <span>???</span>
               }
               {displayHintTheme &&
-                <span>{hintTheme}</span>
+                <span className="hint-fade-in">{hints.theme}</span>
               }
             </div>
           </div>
@@ -860,7 +955,7 @@ function App() {
                 <span>???</span>
               }
               {displayHintTrivia &&
-                <span>{hintTrivia}</span>
+                <span className="hint-fade-in">{hints.trivia}</span>
               }
             </div>
           </div>
@@ -882,7 +977,7 @@ function App() {
                 <span>???</span>
               }
               {displayHintHistory &&
-                <span>{hintHistory}</span>
+                <span className="hint-fade-in">{hints.history}</span>
               }
             </div>
           </div>
@@ -905,22 +1000,22 @@ function App() {
               }
               {displayHintGenre &&
                 <span>
-                  <span className="hint-genre-main">{convertListToString(storedAlbum.genres)}, </span>
-                  <span>{convertListToString(storedAlbum.styles)}</span>
+                  <span className="hint-fade-in hint-genre-main">{convertListToString(storedAlbum.genres)}, </span>
+                  <span className="hint-fade-in">{convertListToString(storedAlbum.styles)}</span>
                 </span>
               }
             </div>
           </div>
           <div className="d-flex flex-row text-center hint-row">
-            <div className="col-1">- 3</div>
+            <div className="col-1">- 4</div>
             <div className="col-2">
-              {(pointsToday >= 3 && !displayHintYear) &&
+              {(pointsToday >= 4 && !displayHintYear) &&
                 <Button variant="outline-success" className="hint-button" id="hint4" onClick={(e) => updateHintsEnabled(4)}>Reveal Year</Button>
               }
               {displayHintYear &&
                 <Button variant="success" className="hint-button" disabled>Reveal Year</Button>
               }
-              {(pointsToday < 3 && !displayHintYear) &&
+              {(pointsToday < 4 && !displayHintYear) &&
                 <Button variant="danger" className="hint-button" disabled>Reveal Year</Button>
               }
             </div>
@@ -929,39 +1024,56 @@ function App() {
                 <span>???</span>
               }
               {displayHintYear &&
-                <span>{storedAlbum.year}</span>
+                <span className="hint-fade-in">{storedAlbum.year}</span>
               }
             </div>
           </div>
           <div className="d-flex flex-row text-center hint-row">
             <div className="col-1">- 5</div>
             <div className="col-2">
-              {(pointsToday >= 5 && !displayHintSong) &&
-                <Button variant="outline-success" className="hint-button" id="hint5" onClick={(e) => updateHintsEnabled(5)}>Reveal Song</Button>
+              {hints.song != "N/A" &&
+                <span>
+                  {(pointsToday >= 5 && !displayHintSong) &&
+                    <Button variant="outline-success" className="hint-button" id="hint5" onClick={(e) => updateHintsEnabled(5)}>Reveal Song</Button>
+                  }
+                  {displayHintSong &&
+                    <Button variant="success" className="hint-button" disabled>Reveal Song</Button>
+                  }
+                  {(pointsToday < 5 && !displayHintSong) &&
+                    <Button variant="danger" className="hint-button" disabled>Reveal Song</Button>
+                  }
+                </span>
               }
-              {displayHintSong &&
-                <Button variant="success" className="hint-button" disabled>Reveal Song</Button>
-              }
-              {(pointsToday < 5 && !displayHintSong) &&
-                <Button variant="danger" className="hint-button" disabled>Reveal Song</Button>
+              {/* Special case if song hint is not available */}
+              {hints.song == "N/A" &&
+                <Button variant="secondary" className="hint-button" disabled>Reveal Song</Button>
               }
             </div>
             <div className="col-8">
-              {!displayHintSong &&
-                <span>???</span>
+              {hints.song != "N/A" &&
+                <span>
+                  {!displayHintSong &&
+                    <span>???</span>
+                  }
+                  {displayHintSong &&
+                    <span className="hint-fade-in">{hints.song}</span>
+                  }
+                </span>
               }
-              {displayHintSong &&
-                <span>Song</span>
+              {/* Special case if song hint is not available */}
+              {hints.song == "N/A" &&
+                <span>No song hint is available today!</span>
               }
             </div>
           </div>
         </div>
         }
         
+        {/* Searchbar and search results */}
         {(!playerWon && lives.length > 0) && 
           <div className="container">
             <div className="container searchbar">
-              <input className="form-control me-2" type="search" placeholder="Search for album title" onChange={(e) => handleChange(e.target.value)} value={input}/>
+              <input className="form-control me-2" type="search" id="searchbar" placeholder="Search for album title" onChange={(e) => handleSearch(e.target.value)} value={input}/>
               <Button variant="outline-success" type="submit" onClick={(e) => newGuess(guess)}>Guess</Button>
               {/* Only show search results if search input isn't empty and an album guess isn't selected */}
               {(input && !guessSelected && !displayErrorMsg) &&
@@ -982,17 +1094,7 @@ function App() {
           </div>
         }
 
-        <div className="options-rectangle">
-          <div className="form-check">
-            <input className="form-check-input" type="checkbox"  id="displayTitleCheck" defaultChecked onChange={(e) => setDisplayTitles(e.target.checked)}/>
-            <label className="form-check-label" htmlFor="displayTitleCheck">Display album titles</label>
-          </div>
-          <div className="form-check">
-            <input className="form-check-input" type="checkbox"  id="displayGuide" onChange={(e) => setDisplayGuide(!e.target.checked)}/>
-            <label className="form-check-label" htmlFor="displayGuide">Hide guide</label>
-          </div>
-        </div>
-
+        {/* Display for guesses/lives left */}
         {(playerWon || lives.length > 0) && 
           <div className="container life-container">
             {lives.map((life) => (
@@ -1011,6 +1113,35 @@ function App() {
             ))}
           </div>
         }
+        
+        {/* Display tutorial on how to use clues */}
+        {(!playerWon && lives.length > 0 && displayGuide) && 
+          <div className="container tutorial-box">
+            <div className="tutorial-heading">(Sub)genre Clues</div>
+            <div className="d-flex flex-row text-center justify-content-center align-items-center">
+              <div className="col-sm"><span style={{color: "green", fontWeight: "bold"}}>Green</span>: All (sub)genres match.</div>
+              <div className="col-sm"><span style={{color: "#fcd512", fontWeight: "bold"}}>Yellow</span>: At least one of the (sub)genres matches, but not all of them do.</div>
+              <div className="col-sm"><span style={{color: "red", fontWeight: "bold"}}>Red</span>: None of the (sub)genres match.</div>
+            </div>
+            <div className="tutorial-heading">Number Clues</div>
+            <div className="d-flex flex-row text-center justify-content-center align-items-center">
+              <div className="col-sm"><ImArrowUp/> <span style={{fontWeight: "bold"}}>Arrow up</span>: The actual number/year is LARGER/MORE RECENT than your guess.</div>
+              <div className="col-sm"><ImArrowDown/> <span style={{fontWeight: "bold"}}>Arrow down</span>: The actual number/year is SMALLER/LESS RECENT than your guess.</div>
+            </div>
+          </div>
+        }
+
+        {/* Options to hide/display UI elements */}
+        <div className="options-rectangle">
+          <div className="form-check">
+            <input className="form-check-input" type="checkbox"  id="displayTitleCheck" defaultChecked={displayTitles} onChange={(e) => updateDisplayTitles(e.target.checked)}/>
+            <label className="form-check-label" htmlFor="displayTitleCheck">Display album titles</label>
+          </div>
+          <div className="form-check">
+            <input className="form-check-input" type="checkbox" id="displayGuideCheck" defaultChecked={!displayGuide} onChange={(e) => updateDisplayGuide(!e.target.checked)}/>
+            <label className="form-check-label" htmlFor="displayGuideCheck">Hide guide</label>
+          </div>
+        </div>
 
         <div className="container info-row">
           <div className="container my-2">
