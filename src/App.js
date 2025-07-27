@@ -10,7 +10,7 @@ import { ImArrowUp, ImArrowDown } from "react-icons/im";
 import { FaBimobject, FaHeart } from "react-icons/fa";
 import { GiCompactDisc, GiCrackedDisc } from "react-icons/gi";
 import { useDebounce } from 'use-debounce';
-
+import { HiOutlineQuestionMarkCircle } from "react-icons/hi2";
 
 // given a duration in mm:ss string format, converts it to the total number of seconds 
 function convertDurationToSeconds(durationString) {
@@ -101,6 +101,8 @@ function App() {
 
   const [displayTitles, setDisplayTitles] = useState(true)
   const [displayGuide, setDisplayGuide] = useState(true)
+  const [displayHints, setDisplayHints] = useState(true)
+  const [displayCredits, setDisplayCredits] = useState(false)
 
   const [displayHintTutorial, setDisplayHintTutorial] = useState(false)
 
@@ -149,7 +151,7 @@ function App() {
           }
         }
 
-        // clear everything but streak data
+        // clear everything but streak/point data and options
         localStorage.removeItem("albumGuesses")
         localStorage.removeItem("lives")
         localStorage.removeItem("lostLives")
@@ -201,13 +203,24 @@ function App() {
     if (localStorage.getItem("won") !== null) {
       setPlayerWon(localStorage.getItem("won"))
     }
+
+    // if player has not opened the website before, show them the help screen automatically
+    if (localStorage.getItem("opened") == null) {
+      updateDisplayTutorial(true)
+      localStorage.setItem("opened", true)
+    }
+
     let displayGuideOption = localStorage.getItem("displayGuide")
     let displayTitlesOption = localStorage.getItem("displayTitles")
+    let displayHintsOption = localStorage.getItem("displayHints")
     if (displayGuideOption !== null) {
       setDisplayGuide(displayGuideOption == "true")
     }
     if (displayTitlesOption !== null) {
       setDisplayTitles(displayTitlesOption == "true")
+    }
+    if (displayHintsOption !== null) {
+      setDisplayHints(displayHintsOption == "true")
     }
     if (localStorage.getItem("currStreak") !== null) {
       setCurrentStreak(localStorage.getItem("currStreak"))
@@ -717,18 +730,40 @@ function App() {
     localStorage.setItem("displayGuide", value)
   }
 
-  let displayGuideLoaded = false
-  let displayTitlesLoaded = false
-  const updateDisplayGuideStart = (value) => {
-    if (!displayGuideLoaded) {
-      setDisplayGuide(value)
-      displayGuideLoaded = true
-    }
-  }
-
   const updateDisplayTitles = (value) => {
     setDisplayTitles(value)
     localStorage.setItem("displayTitles", value)
+  }
+
+  const updateDisplayHints = (value) => {
+    setDisplayHints(value)
+    localStorage.setItem("displayHints", value)
+  }
+
+  const updateDisplayTutorial = (value) => {
+    setDisplayHintTutorial(value)
+    let mainPageDiv = document.getElementById("main-page")
+    if (value) {
+      mainPageDiv.style.opacity = "20%"
+      mainPageDiv.style.pointerEvents = "none"
+    }
+    else {
+      mainPageDiv.style.opacity = "100%"
+      mainPageDiv.style.pointerEvents = "auto"
+    }
+  }
+
+  const updateDisplayCredits = (value) => {
+    setDisplayCredits(value)
+    let mainPageDiv = document.getElementById("main-page")
+    if (value) {
+      mainPageDiv.style.opacity = "20%"
+      mainPageDiv.style.pointerEvents = "none"
+    }
+    else {
+      mainPageDiv.style.opacity = "100%"
+      mainPageDiv.style.pointerEvents = "auto"
+    }
   }
 
   const updateHintsEnabled = (value) => {
@@ -784,8 +819,76 @@ function App() {
 
   return (
     <div className="container">
-      <div className="container page-title">
-        <p>Guess The Album</p>
+      {displayCredits &&
+        <div className="container credits-box">
+          <div className="d-flex flex-row"> 
+            <div className="col"></div>
+            <div className="col credits-title">About this website</div>
+            <div className="col howtoplay-close"><Button variant="danger" type="submit" onClick={(e) => updateDisplayCredits(false)}>X</Button></div>
+          </div>
+          <p>Website created by <a>Jeffrey Remy</a>.</p>
+          <p>Hosted by Github Pages.</p>
+          <p>Uses <a href="https://www.discogs.com/" target="_blank">Discogs</a> API for albums.</p>
+        </div>
+      }
+      {displayHintTutorial &&
+          <div className="container hint-howtouse hint-fade-in">
+            <div className="d-flex flex-row">
+              <div className="col"></div>
+              <div className="col howtoplay-title">How To Play</div>
+              <div className="col howtoplay-close"><Button variant="danger" type="submit" onClick={(e) => updateDisplayTutorial(false)}>X</Button></div>
+            </div>
+            <div className="d-flex flex-row">
+              <div className="col">
+                <p className="howtoplay-title">General</p>
+                <ul>
+                  <li>There is one album of the day that you are trying to guess. Look up artist names or album titles to submit album guesses.</li>
+                  <li>Every guess tells you details you got right or wrong about the album of the day.</li>
+                  <li>Scroll down to see details of previous guesses. Read the guide for how to interpret the colors/arrows.</li>
+                  <li>You get 10 guesses. If you run out, you lose.</li>
+                </ul>
+              </div>
+              <div className="col">
+                <p className="howtoplay-title">Points and Hints</p>
+                <ul>
+                  <li>You start with 10 points. You do not lose any points for guessing.</li>
+                  <li>You always gain 1 point if you correctly guess the album. If you lose, you always end up with 0 points.</li>
+                  <li>You can trade some points for hints about the album of the day.</li>
+                  <li>The theme is always free. Be careful which clues you choose to reveal, as you may run out of points to use.</li>
+                </ul>
+              </div>
+              <div className="col">
+                <p className="howtoplay-title">Streaks and Total Points</p>
+                <ul>
+                  <li>You gain a streak if you guess the album correctly at least two days in a row.</li>
+                  <li>Points do not affect streaks, but you must correctly guess the album on consecutive days to keep your streak.</li>
+                  <li>The points you have at the end of the day are added to your total points. Your total points are never erased.</li>
+                  <li>Streaks and total points are just for fun.</li>
+                </ul>
+              </div>
+            </div>
+            
+          </div>
+        }
+
+      <div id="main-page">
+      <div className="container d-flex flex-row">
+        <div className="container page-title col-12">
+          <p>Guess The Album</p>
+        </div>
+
+        <div className="col">
+          {!displayCredits &&
+          <Button variant="outline-info" type="submit" className="credits-button" onClick={(e) => updateDisplayCredits(true)}>
+            <span className="credits-symbol"><HiOutlineQuestionMarkCircle /></span>
+          </Button>
+          }
+          {displayCredits &&
+          <Button variant="info" type="submit" className="credits-button-active" onClick={(e) => updateDisplayCredits(false)}>
+            <span className="credits-symbol"><HiOutlineQuestionMarkCircle /></span>
+          </Button>
+          }
+        </div>
       </div>
 
       {/* If the storedAlbum hasn't been loaded yet, indicate we are still loading */}
@@ -866,50 +969,13 @@ function App() {
           </div>
         }
 
-        {displayHintTutorial &&
-          <div className="container hint-howtouse hint-fade-in">
-            <div className="d-flex flex-row">
-              <div className="col"></div>
-              <div className="col howtoplay-title">How To Play</div>
-              <div className="col howtoplay-close"><Button variant="danger" type="submit" onClick={(e) => setDisplayHintTutorial(false)}>X</Button></div>
-            </div>
-            <div className="d-flex flex-row">
-              <div className="col">
-                <p className="howtoplay-title">General</p>
-                <ul>
-                  <li>There is one album of the day that you are trying to guess. Look up artist names or album titles to submit album guesses.</li>
-                  <li>Every guess tells you details you got right or wrong about the album of the day.</li>
-                  <li>You get 10 guesses. If you run out, you lose.</li>
-                </ul>
-              </div>
-              <div className="col">
-                <p className="howtoplay-title">Points and Hints</p>
-                <ul>
-                  <li>You start with 10 points. You do not lose any points for guessing.</li>
-                  <li>You always gain 1 point if you correctly guess the album. If you lose, you always end up with 0 points.</li>
-                  <li>You can trade some points for hints about the album of the day.</li>
-                  <li>The theme is always free. Be careful which clues you choose to reveal, as you may run out of points to use.</li>
-                </ul>
-              </div>
-              <div className="col">
-                <p className="howtoplay-title">Streaks and Total Points</p>
-                <ul>
-                  <li>You gain a streak if you guess the album correctly at least two days in a row.</li>
-                  <li>Points do not affect streaks, but you must correctly guess the album on consecutive days to keep your streak.</li>
-                  <li>The points you have at the end of the day are added to your total points. Your total points are never erased.</li>
-                  <li>Streaks and total points are just for fun.</li>
-                </ul>
-              </div>
-            </div>
-            
-          </div>
-        }
         
-        {(!playerWon && lives.length > 0) &&
+        
+        {(!playerWon && lives.length > 0 && displayHints) &&
         <div className="container hint-box">
           {/* Guide for how to use hints */}
           <div className="d-flex flex-row hint-heading">
-            <div className="col-2" onClick={(e) => setDisplayHintTutorial(true)}><Button variant="success" className="help-button">Help?</Button></div>
+            <div className="col-2" onClick={(e) => updateDisplayTutorial(true)}><Button variant="success" className="help-button">Help?</Button></div>
             <div className="col">Hints</div>
             <div className="col-2">Points: {pointsToday}</div>
           </div>
@@ -1141,6 +1207,10 @@ function App() {
             <input className="form-check-input" type="checkbox" id="displayGuideCheck" defaultChecked={!displayGuide} onChange={(e) => updateDisplayGuide(!e.target.checked)}/>
             <label className="form-check-label" htmlFor="displayGuideCheck">Hide guide</label>
           </div>
+          <div className="form-check">
+            <input className="form-check-input" type="checkbox" id="displayHintsCheck" defaultChecked={!displayHints} onChange={(e) => updateDisplayHints(!e.target.checked)}/>
+            <label className="form-check-label" htmlFor="displayHintsCheck">Hide hints</label>
+          </div>
         </div>
 
         <div className="container info-row">
@@ -1293,6 +1363,7 @@ function App() {
           ))}
         </div>
       </div>}
+      </div>
     </div>
   );
 }

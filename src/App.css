@@ -17,6 +17,54 @@ body {
   color: white;
 }
 
+#main-page {
+  opacity: 100%;
+}
+
+.credits-button {
+  text-align: end;
+  background: none;
+  border: none;
+  padding: none;
+  margin-top: 10px;
+}
+
+.credits-button-active {
+  text-align: end;
+  border: none;
+  padding: none;
+  margin-top: 10px;
+}
+
+.credits-symbol {
+  font-size: 24px;
+}
+
+.credits-box {
+  background-color: black;
+  border-style:solid;
+  border-color:white;
+  width: 35%;
+  padding: 10px;
+  z-index: 10;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  margin:auto;
+  display: inline-block;
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -30%);
+  opacity: 100% ;
+}
+
+.credits-title {
+  text-align: center;
+  font-weight: bold;
+  font-size: large;
+}
+
 .tutorial-box {
   background-color: black;
   border-style:solid;
@@ -51,7 +99,7 @@ body {
   width: 100%;
   min-height: min-content;
   height: 50%;
-  margin-top: --100px;
+  top: 20%;
   /* overflow-y: scroll; */
   padding: 10px;
   display: inline-block;
@@ -142,6 +190,7 @@ body {
   justify-content: center;
   align-items: center;
   text-align:center;
+  margin: auto;
 }
 
 .info-col {
