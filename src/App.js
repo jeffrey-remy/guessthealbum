@@ -827,6 +827,7 @@ function App() {
             <div className="col howtoplay-close"><Button variant="danger" type="submit" onClick={(e) => updateDisplayCredits(false)}>X</Button></div>
           </div>
           <p>Website created by <a>Jeffrey Remy</a>.</p>
+          <p>Inspired by <a href="https://www.gamedle.wtf/#" target="_blank">GAMEDLE</a>'s Guess mode.</p>
           <p>Hosted by Github Pages.</p>
           <p>Uses <a href="https://www.discogs.com/" target="_blank">Discogs</a> API for albums.</p>
         </div>
