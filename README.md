@@ -1,7 +1,7 @@
 # Guess The Album
 
 A daily guessing-game similar to Wordle, but for specific albums. Takes inspiration from [GAMEDLE](https://www.gamedle.wtf/#)'s Guess mode. \
-The [website](https://jeffrey-remy.github.io/guessthealbum/) is publicly accessible and is published using Github Pages.
+The [website](https://jeffreysremy.github.io/guessthealbum/) is publicly accessible and is published using Github Pages.
 
 ## Repository
 
